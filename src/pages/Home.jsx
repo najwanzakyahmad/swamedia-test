@@ -30,7 +30,8 @@ export default function Home() {
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [showAddModal, setShowAddModal] = useState(false);
 
-  // Debounce the search box so we don't spam /products/search on every keystroke.
+  const visibleItems = items;
+
   useEffect(() => {
     const t = setTimeout(() => setDebouncedSearch(search), 400);
     return () => clearTimeout(t);
@@ -62,8 +63,8 @@ export default function Home() {
   };
 
   const isEmpty = useMemo(
-    () => listStatus === 'idle' && items.length === 0,
-    [listStatus, items.length]
+    () => listStatus === 'idle' && visibleItems.length === 0,
+    [listStatus, visibleItems.length]
   );
 
   return (
@@ -109,26 +110,33 @@ export default function Home() {
         )}
 
         <div className="product-grid">
-          {items.map((product) => (
+          {visibleItems.map((product) => (
             <button
               key={product.id}
               className="product-card"
               onClick={() => navigate(`/products/${product.id}`)}
             >
               <span className="product-card-notch" />
+
               <div className="product-thumb">
                 <img src={product.thumbnail} alt="" loading="lazy" />
               </div>
+
               <div className="product-body">
                 <h3>{product.title}</h3>
+
                 <span className="product-brand">
                   {product.brand || product.category}
                 </span>
+
                 <div className="product-meta">
                   <span className="product-price">
                     ${Number(product.price).toFixed(2)}
                   </span>
-                  <span className="product-stock">Stok {product.stock}</span>
+
+                  <span className="product-stock">
+                    Stok {product.stock}
+                  </span>
                 </div>
               </div>
             </button>
