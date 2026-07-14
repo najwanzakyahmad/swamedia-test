@@ -61,31 +61,37 @@ export const updateProduct = createAsyncThunk(
             String(product.id) === String(id)
         );
 
+      const {
+        id: _payloadId,
+        isLocalProduct: _isLocalProduct,
+        isDeleted: _isDeleted,
+        deletedOn: _deletedOn,
+        ...safePayload
+      } = payload;
+
       /*
        * Produk hasil add hanya ada di Redux.
-       * Jangan kirim PUT ke DummyJSON karena produk tersebut
-       * tidak benar-benar tersimpan di server.
        */
       if (isAddedProduct) {
         return {
-          ...payload,
+          ...safePayload,
           id,
           isLocalProduct: true,
         };
       }
 
       /*
-       * Produk asli DummyJSON tetap melakukan request PUT.
+       * Produk asli DummyJSON dikirim ke API.
        */
       const { data } = await client.put(
         `/products/${id}`,
-        payload
+        safePayload
       );
 
       return {
-        ...payload,
+        ...safePayload,
         ...data,
-        id,
+        id: data.id,
         isLocalProduct: false,
       };
     } catch (err) {

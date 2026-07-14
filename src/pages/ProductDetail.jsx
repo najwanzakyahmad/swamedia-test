@@ -415,11 +415,16 @@ export default function ProductDetail() {
               )}
 
               <ProductForm
-                initialValues={product}
+                initialValues={{
+                  title: product.title ?? '',
+                  category: product.category ?? '',
+                  price: product.price ?? '',
+                  stock: product.stock ?? '',
+                  brand: product.brand ?? '',
+                  description: product.description ?? '',
+                }}
                 submitLabel="Simpan perubahan"
-                isSubmitting={
-                  mutationStatus === 'loading'
-                }
+                isSubmitting={mutationStatus === 'loading'}
                 onSubmit={handleUpdate}
               />
             </div>
