@@ -180,7 +180,11 @@ export default function ProductDetail() {
    */
   const handleDelete = async () => {
     const result = await dispatch(
-      deleteProduct(id)
+      deleteProduct({
+        id,
+        isLocalProduct:
+          product?.isLocalProduct === true,
+      })
     );
 
     if (deleteProduct.fulfilled.match(result)) {

@@ -38,10 +38,20 @@ export const addProduct = createAsyncThunk(
   'products/addProduct',
   async (payload, { rejectWithValue }) => {
     try {
-      const { data } = await client.post('/products/add', payload);
-      return data;
+      const { data } = await client.post(
+        '/products/add',
+        payload
+      );
+
+      return {
+        ...data,
+        isLocalProduct: true,
+      };
     } catch (err) {
-      return rejectWithValue(err.response?.data?.message || 'Gagal menambahkan produk.');
+      return rejectWithValue(
+        err.response?.data?.message ||
+          'Gagal menambahkan produk.'
+      );
     }
   }
 );
@@ -105,14 +115,76 @@ export const updateProduct = createAsyncThunk(
 
 export const deleteProduct = createAsyncThunk(
   'products/deleteProduct',
-  async (id, { rejectWithValue }) => {
+  async (
+    argument,
+    { getState, rejectWithValue }
+  ) => {
     try {
-      const { data } = await client.delete(`/products/${id}`);
+      /*
+       * Mendukung dua pemanggilan:
+       *
+       * deleteProduct(195)
+       * deleteProduct({
+       *   id: 195,
+       *   isLocalProduct: true
+       * })
+       */
+      const id =
+        typeof argument === 'object'
+          ? argument.id
+          : argument;
 
-      return data;
+      const localHint =
+        typeof argument === 'object' &&
+        argument.isLocalProduct === true;
+
+      const state = getState();
+
+      const productFromAdded =
+        state.products.addedProducts.find(
+          (product) =>
+            String(product.id) === String(id)
+        );
+
+      const productFromItems =
+        state.products.items.find(
+          (product) =>
+            String(product.id) === String(id)
+        );
+
+      const isLocalProduct =
+        localHint ||
+        productFromAdded?.isLocalProduct === true ||
+        productFromItems?.isLocalProduct === true ||
+        Boolean(productFromAdded);
+
+      /*
+       * Produk hasil POST /products/add hanya ada di Redux.
+       * Jangan kirim DELETE ke DummyJSON.
+       */
+      if (isLocalProduct) {
+        return {
+          id,
+          isLocalProduct: true,
+        };
+      }
+
+      /*
+       * Produk asli dari DummyJSON tetap menggunakan API.
+       */
+      const { data } = await client.delete(
+        `/products/${id}`
+      );
+
+      return {
+        ...data,
+        id: data.id ?? id,
+        isLocalProduct: false,
+      };
     } catch (err) {
       return rejectWithValue(
-        err.response?.data?.message || 'Gagal menghapus produk.'
+        err.response?.data?.message ||
+          'Gagal menghapus produk.'
       );
     }
   }
@@ -372,27 +444,54 @@ const productSlice = createSlice({
       })
       .addCase(deleteProduct.fulfilled, (state, action) => {
         state.mutationStatus = 'succeeded';
+        state.mutationError = null;
 
-        const deletedId = action.payload.id;
-
-        const alreadyDeleted = state.deletedIds.some(
-          (id) => String(id) === String(deletedId)
-        );
-
-        if (!alreadyDeleted) {
-          state.deletedIds.push(deletedId);
-        }
+        const deletedId = String(action.payload.id);
+        const isLocalProduct =
+          action.payload.isLocalProduct === true;
 
         state.items = state.items.filter(
-          (product) => String(product.id) !== String(deletedId)
+          (product) =>
+            String(product.id) !== deletedId
         );
+
+        state.addedProducts =
+          state.addedProducts.filter(
+            (product) =>
+              String(product.id) !== deletedId
+          );
+
+        delete state.updatedProducts[deletedId];
+
+        /*
+        * deletedIds hanya untuk produk asli dari API.
+        * Produk lokal tidak akan dikirim kembali oleh server.
+        */
+        if (!isLocalProduct) {
+          const alreadyDeleted =
+            state.deletedIds.some(
+              (id) =>
+                String(id) === deletedId
+            );
+
+          if (!alreadyDeleted) {
+            state.deletedIds.push(
+              action.payload.id
+            );
+          }
+        }
 
         if (
           state.current &&
-          String(state.current.id) === String(deletedId)
+          String(state.current.id) === deletedId
         ) {
           state.current = null;
         }
+
+        state.total = Math.max(
+          0,
+          state.total - 1
+        );
       })
       .addCase(deleteProduct.rejected, (state, action) => {
         state.mutationStatus = 'failed';
